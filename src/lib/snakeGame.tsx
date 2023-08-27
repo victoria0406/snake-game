@@ -10,10 +10,10 @@ const Settings = {
 export default class App {
     app: PIXI.Application;
     board: PIXI.Container;
-    constructor({col, row, ref}:{col:number, row:number, ref: HTMLElement|undefined}) {
+    constructor({col, row, map, ref}:{col:number, row:number, map:String[][], ref: HTMLElement|undefined}) {
       Settings.tileSize = Math.min(Math.floor(ref?.offsetHeight/(row+1)), Math.floor(ref?.offsetWidth/(col+1)));
         this.app = new PIXI.Application({ background: Settings.backgroundColor, resizeTo: ref });
-        const board = new Board({col, row});
+        const board = new Board({col, row, map});
         this.app.stage.addChild(board);
         board.x = this.app.screen.width / 2;
         board.y = this.app.screen.height / 2;
@@ -30,13 +30,15 @@ class Board extends PIXI.Container {
     _tileSize: number;
     oriIndex: number|undefined;
     desIndex: number|undefined;
+    map: String[][];
 
-    constructor({col, row}:{col: number, row: number}) {
+    constructor({col, row, map}:{col: number, row: number, map:String[][]}) {
         super();
         this.matrix = new Array(col);
+        this.map = map;
         this._tileSize = Settings.tileSize;
         this.restart(col, row);
-        this.isRunning = true;
+        this.isRunning = false;
     }
 
 
@@ -54,7 +56,7 @@ class Board extends PIXI.Container {
     }
 
     play = () => {
-      if (!this.oriIndex) {
+      /* 자동 세팅 기능은 없음 if (!this.oriIndex) {
         this.resetColor();
         this.oriIndex = Math.floor(Math.random()*this.children.length);
         this.children[this.oriIndex].color=0xffffff;
@@ -62,12 +64,21 @@ class Board extends PIXI.Container {
       if (!this.desIndex) {
         this.desIndex = Math.floor(Math.random()*this.children.length);
         this.children[this.desIndex].color=0xffffff;
+      }*/ 
+      if (this.oriIndex===undefined) {
+        return 'No Orientation';
       }
-
+      if (this.desIndex===undefined) {
+        return 'No Destination';
+      }
+      
+      this.isRunning = true;
       let {col:oriCol, row:oriRow} = this._indexToPosition(this.oriIndex);
       const {col:desCol, row:desRow} = this._indexToPosition(this.desIndex);
 
       let path = '';
+
+      /*미로찾기 알고리즘*/
 
       return new Promise((res) => {
         const interval = setInterval(()=>{
@@ -78,6 +89,7 @@ class Board extends PIXI.Container {
             if (oriRow == desRow) {
               this.oriIndex = undefined;
               this.desIndex = undefined;
+              this.isRunning = false;
               res(path);
               clearInterval(interval);
             }
@@ -101,7 +113,6 @@ class Board extends PIXI.Container {
     }
 
     _generateField = () => {
-      console.log('generate');
         let index = 0;
         for (let col = 0; col < this._boardSize.col; col++) {
           if (!this.matrix[col]) this.matrix[col] = [];
@@ -109,19 +120,24 @@ class Board extends PIXI.Container {
             if (this.matrix[col][row]) {
               this.matrix[col][row].reset();
             } else {
-              let tile = new Tile({size: this._tileSize, x: col, y: row, isSnake:false, parentIndex:index});
-              tile.on('pointerdown', (event) => {
+              let tile = new Tile({size: this._tileSize, x: col, y: row, isSnake:false, parentIndex:index, field: this.map[col][row]});
+              if (this.map[col][row] === 'road' && !this.isRunning) {
+                tile.on('pointerdown', (event) => {
                 const eventIndex = event.target?.parentIndex;
-                if (!this.oriIndex) {
+                if (this.oriIndex==undefined) {
+                  console.log('ori', eventIndex);
                   this.resetColor();
                   this.oriIndex = eventIndex;
                   tile.color = 0xffffff;
                 }
-                else if (!this.desIndex) {
+                else if (this.desIndex==undefined) {
+                  console.log('des', eventIndex);
                   this.desIndex = eventIndex;
                   tile.color = 0xffffff;
                 }
               });
+              }
+
               this.matrix[col][row] = tile;
               this.addChild(tile);
             }
@@ -164,9 +180,17 @@ class Square extends PIXI.Graphics {
     }
   }
 
+  const fieldColor:{
+    [key : string] : number
+  } = {
+    road: 0x888888,
+    field: 0x81c147,
+  }
+
 class Tile extends Square {
     _isSnake:boolean;
     parentIndex:number;
+    field_color;
 
     reset() {
       this._isSnake = false;
@@ -175,7 +199,7 @@ class Tile extends Square {
   
     _updateColor = () => {
       if (this._isSnake) this.color = Settings.snakeColor;
-      else this.color = Settings.backgroundColor;
+      else this.color = this.field_color;
     };
   
     get isSnake() {
@@ -185,8 +209,9 @@ class Tile extends Square {
       this._isSnake = v;
       this._updateColor();
     }
-    constructor({size, x, y, isSnake, parentIndex}:{size:number, x:number, y:number, isSnake:boolean, parentIndex:number}) {
-      super({ color: Settings.backgroundColor, size }); // size가 제대로 안 넘어가는 것 같다. 
+    constructor({size, x, y, isSnake, parentIndex, field}:{size:number, x:number, y:number, isSnake:boolean, parentIndex:number, field:String}) {
+      super({ color: fieldColor[field], size }); // size가 제대로 안 넘어가는 것 같다. 
+      this.field_color = fieldColor[field];
       this.x = size * x;
       this.y = size * y;
   

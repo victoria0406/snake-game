@@ -1,11 +1,11 @@
 import App from "@/lib/snakeGame";
 import { useEffect, useRef, useState } from "react";
 
-export default function SnakeGameScreen({col, row, isPlay, setIsPlay, setPath}:{col: number, row:number,isPlay:boolean, setIsPlay:Function, setPath:Function}) {
+export default function SnakeGameScreen({col, row, isPlay, setIsPlay, setPath, map}:{col: number, row:number,isPlay:boolean, setIsPlay:Function, setPath:Function, map:String[][]}) {
     const [app, setApp] = useState();
     const appRef = useRef<HTMLElement>(null);
     useEffect(()=>{
-        const initApp = new App({col, row, ref:appRef.current});
+        const initApp = new App({col, row, map, ref:appRef.current});
         appRef?.current?.appendChild(initApp.app.view);
         initApp.app.start();
         setApp(initApp);
