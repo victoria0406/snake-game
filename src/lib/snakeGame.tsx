@@ -1,4 +1,39 @@
+import path from 'path';
 import * as PIXI from 'pixi.js';
+
+
+function findShortPath(maps:number[][], start:number[], end:number[]) {
+  const rows = maps[0].length;
+  const cols = maps.length;
+
+  const visited = new Array(rows).fill(false).map(() => new Array(cols).fill(false));
+
+  const dx = [-1, 1, 0, 0];
+  const dy = [0, 0, -1, 1];
+
+  const queue: {x:number, y:number, path:number[]}[] = [{ x: start[0], y: start[1], path: [start[0]*rows+start[1]] }];
+  visited[start[0]][start[1]] = true;
+
+  while (queue.length > 0) {
+    const { x, y, path } = queue.shift();
+
+    if (x === end[0] && y === end[1]) {
+      return path;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      const newX = x + dx[i];
+      const newY = y + dy[i];
+
+      if (newX >= 0 && newX < rows && newY >= 0 && newY < cols && maps[newX][newY] === 0 && !visited[newX][newY]) {
+        const newPath = [...path, newX*rows+newY]; // 이동한 셀의 값을 경로에 추가
+        queue.push({ x: newX, y: newY, path: newPath });
+        visited[newX][newY] = true;
+      }
+    }
+  }
+  return [];
+}
 
 const Settings = {
     tileSize: 15,
@@ -37,6 +72,7 @@ class Board extends PIXI.Container {
         this.matrix = new Array(col);
         this.map = map;
         this._tileSize = Settings.tileSize;
+        this._boardSize = {col, row};
         this.restart(col, row);
         this.isRunning = false;
     }
@@ -79,25 +115,26 @@ class Board extends PIXI.Container {
       let path = '';
 
       /*미로찾기 알고리즘*/
+      const numberMap = this.map.map((col:String[]) => (col.map((e:String) => Number(e==='road')-1)));
+      const pathArray = findShortPath(numberMap, [oriCol, oriRow], [desCol, desRow]);
 
       return new Promise((res) => {
+        let index = 0;
         const interval = setInterval(()=>{
-          const newIndex = this._positionToIndex(oriCol, oriRow);
-          path+=String.fromCharCode(oriCol+65)+oriRow;
-          this.children[newIndex].isSnake = true;
-          if (oriCol == desCol) {
-            if (oriRow == desRow) {
-              this.oriIndex = undefined;
-              this.desIndex = undefined;
-              this.isRunning = false;
-              res(path);
-              clearInterval(interval);
-            }
-            else oriRow += Math.sign(desRow-oriRow);
+          const newIndex = pathArray[index];
+          if (newIndex === undefined) {
+            this.oriIndex = undefined;
+            this.desIndex = undefined;
+            this.isRunning = false;
+            res(pathArray.map((e:number)=>{
+              const {col:newCol, row: newRow} = this._indexToPosition(e);
+              return String.fromCharCode(newCol+65)+newRow;
+            }).join('-'));
+            clearInterval(interval);
           } else {
-            oriCol += Math.sign(desCol-oriCol);
+            this.children[newIndex].isSnake = true;
+            index+=1;
           }
-          path+='-';
         }, Settings.timeInterval);
       })
     }
@@ -125,13 +162,11 @@ class Board extends PIXI.Container {
                 tile.on('pointerdown', (event) => {
                 const eventIndex = event.target?.parentIndex;
                 if (this.oriIndex==undefined) {
-                  console.log('ori', eventIndex);
                   this.resetColor();
                   this.oriIndex = eventIndex;
                   tile.color = 0xffffff;
                 }
                 else if (this.desIndex==undefined) {
-                  console.log('des', eventIndex);
                   this.desIndex = eventIndex;
                   tile.color = 0xffffff;
                 }
