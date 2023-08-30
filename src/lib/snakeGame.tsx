@@ -11,14 +11,14 @@ function findShortPath(maps:number[][], start:number[], end:number[]) {
   const dx = [-1, 1, 0, 0];
   const dy = [0, 0, -1, 1];
 
-  const queue: {x:number, y:number, pathArraay:number[]}[] = [{ x: start[0], y: start[1], pathArraay: [start[0]*rows+start[1]] }];
+  const queue: {x:number, y:number, pathArray:number[]}[] = [{ x: start[0], y: start[1], pathArray: [start[0]*rows+start[1]] }];
   visited[start[0]][start[1]] = true;
 
   while (queue.length > 0) {
-    const { x, y, pathArraay } = queue.shift();
+    const { x, y, pathArray } = (queue.shift() as {x:number, y:number, pathArray:number[]});
 
     if (x === end[0] && y === end[1]) {
-      return pathArraay;
+      return pathArray;
     }
 
     for (let i = 0; i < 4; i++) {
@@ -26,8 +26,8 @@ function findShortPath(maps:number[][], start:number[], end:number[]) {
       const newY = y + dy[i];
 
       if (newX >= 0 && newX < rows && newY >= 0 && newY < cols && maps[newX][newY] === 0 && !visited[newX][newY]) {
-        const newPath = [...pathArraay, newX*rows+newY]; // 이동한 셀의 값을 경로에 추가
-        queue.push({ x: newX, y: newY, pathArraay: newPath });
+        const newPath = [...pathArray, newX*rows+newY]; // 이동한 셀의 값을 경로에 추가
+        queue.push({ x: newX, y: newY, pathArray: newPath });
         visited[newX][newY] = true;
       }
     }
@@ -44,17 +44,17 @@ const Settings = {
 
 export default class App {
     app: PIXI.Application;
-    board: PIXI.Container;
-    constructor({col, row, map, ref, setOri, setDes}:{col:number, row:number, map:String[][], ref: HTMLElement|undefined, setOri:Function, setDes:Function}) {
-      Settings.tileSize = Math.min(Math.floor(ref?.offsetHeight/(row+1)), Math.floor(ref?.offsetWidth/(col+1)));
-        this.app = new PIXI.Application({ background: Settings.backgroundColor, resizeTo: ref });
-        const board = new Board({col, row, map, setOri, setDes});
-        this.app.stage.addChild(board);
-        board.x = this.app.screen.width / 2;
-        board.y = this.app.screen.height / 2;
-        board.pivot.x = board.width / 2;
-        board.pivot.y = board.height / 2;
-        this.board = board;
+    board: Board;
+    constructor({col, row, map, ref, setOri, setDes}:{col:number, row:number, map:String[][], ref: HTMLDivElement|null, setOri:Function, setDes:Function}) {
+      this.app = new PIXI.Application({ background: Settings.backgroundColor, resizeTo: ref ? ref : window });
+      Settings.tileSize = Math.min(Math.floor((ref?.offsetHeight ? ref?.offsetHeight : window.innerHeight)/(row+1)), Math.floor((ref?.offsetWidth ? ref?.offsetWidth : window.innerWidth)/(col+1)));
+      const board = new Board({col, row, map, setOri, setDes});
+      this.app.stage.addChild(board);
+      board.x = this.app.screen.width / 2;
+      board.y = this.app.screen.height / 2;
+      board.pivot.x = board.width / 2;
+      board.pivot.y = board.height / 2;
+      this.board = board;
     }
 }
 
@@ -81,9 +81,11 @@ class Board extends PIXI.Container {
         this.isRunning = false;
         this.setOri = setOri;
         this.setDes = setDes;
+
         this.desFlag = PIXI.Sprite.from('/des_flag.png');
         this.desFlag.width = this._tileSize*1.5;
         this.desFlag.height = this._tileSize*1.5;
+
         this.charater = PIXI.Sprite.from('/character.png');
         this.charater.width = this._tileSize*1.5;
         this.charater.height = this._tileSize*1.5;
@@ -99,7 +101,7 @@ class Board extends PIXI.Container {
     
     resetPath = () => {
       this.children.forEach((tile)=>{
-        tile.isSnake = false;
+        (tile as Tile).isSnake = false;
       })
       this.setOri("Not Selected");
       this.setDes("Not Selected");
@@ -149,7 +151,7 @@ class Board extends PIXI.Container {
             this.charater.x = this.children[newIndex].x-this._tileSize*0.25;
             this.charater.y = this.children[newIndex].y-this._tileSize*1;
             
-            this.children[newIndex].isSnake = true;
+            (this.children[newIndex] as Tile).isSnake = true;
             index+=1;
           }
         }, Settings.timeInterval);
@@ -181,7 +183,7 @@ class Board extends PIXI.Container {
               let tile = new Tile({size: this._tileSize, x: col, y: row, isSnake:false, parentIndex:index, field: this.map[col][row]});
               if (this.map[col][row] === 'road' && !this.isRunning) {
                 tile.on('pointerdown', (event) => {
-                const eventIndex = event.target?.parentIndex;
+                const eventIndex = (event.target as Tile).parentIndex;
                 if (this.oriIndex==undefined) {
                   this.oriIndex = eventIndex;
                   this.setOri(this._indexToString(eventIndex));
@@ -241,17 +243,20 @@ class Square extends PIXI.Graphics {
     }
   }
 
-  const fieldColor:{
-    [key : string] : number
-  } = {
-    road: 0x888888,
-    field: 0x81c147,
-  }
+type fieldType = "road" | "field"; 
+
+const fieldColor:{
+  [key : string] : number
+} = {
+  road: 0x888888,
+  field: 0x81c147,
+}
+
 
 class Tile extends Square {
     _isSnake:boolean;
     parentIndex:number;
-    field_color;
+    field_color:number;
 
     reset() {
       this._isSnake = false;
@@ -271,8 +276,8 @@ class Tile extends Square {
       this._updateColor();
     }
     constructor({size, x, y, isSnake, parentIndex, field}:{size:number, x:number, y:number, isSnake:boolean, parentIndex:number, field:String}) {
-      super({ color: fieldColor[field], size }); // size가 제대로 안 넘어가는 것 같다. 
-      this.field_color = fieldColor[field];
+      super({ color: fieldColor[(field as fieldType)], size });
+      this.field_color = fieldColor[(field as fieldType)];
       this.x = size * x;
       this.y = size * y;
   
