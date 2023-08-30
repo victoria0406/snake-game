@@ -22,6 +22,8 @@ export default function Home() {
   const [selectedRow, setSelectedRow] = useState(21);
   const [isPlay, setIsPlay] = useState(false);
   const [path, setPath] = useState('No Path');
+  const [ori, setOri] = useState("Not Selected");
+  const [des, setDes] = useState("Not Selected");
 
   const play = () => {
     setIsPlay(true);
@@ -32,56 +34,35 @@ export default function Home() {
   return (
     <main className='flex'>
       <div className='h-screen w-1/6 p-4 bg-slate-800 flex flex-col justify-between'>
-        <div>
+        <div className='h-[47vh]'>
           <h1 className='text-xl font-bold'>Inputs</h1>
           <hr className='my-4'/>
-          {/*
-          <label
-            for="width-range"
-            className="block my-2 text-sm font-medium text-gray-900 dark:text-white"
-          >
-            Column Size: {colSize}
-          </label>
-          <input
-            id="width-range"
-            type="range"
-            min={10}
-            max={50}
-            value={colSize}
-            onChange={({target:{value}})=>{setColSize(Number(value))}}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-          />
-          <label
-            for="height-range"
-            className="block my-2 text-sm font-medium text-gray-900 dark:text-white"
-          >
-            Row Size: {rowSize}
-          </label>
-          <input
-            id="height-range"
-            type="range"
-            min={10}
-            max={50}
-            value={rowSize}
-            onChange={({target:{value}})=>{setRowSize(Number(value))}}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-          />
-  */}
+          <div>Orientation: {ori}</div>
+          <div>Destination: {des}</div>
         </div>
-        <div>
+        <div className='h-[47vh]'>
           <h1 className='text-xl font-bold'>Output</h1>
           <hr className='my-4'/>
           <div>Path: {path}</div>
         </div>
         <button
-          className='w-full border my-8 rounded disable:cursor-not-allowed'
+          className='w-full border my-8 rounded disable:cursor-not-allowed h-[6vh]'
           onClick={play}
           disabled={isPlay}
         >
           Play
         </button>
       </div>
-      <SnakeGameScreen col={selectedCol} row={selectedRow} isPlay={isPlay} setIsPlay={setIsPlay} setPath={setPath} map = {gameMap}/>
+      <SnakeGameScreen
+        col={selectedCol}
+        row={selectedRow}
+        isPlay={isPlay}
+        setIsPlay={setIsPlay}
+        setPath={setPath}
+        map = {gameMap}
+        setOri = {setOri}
+        setDes = {setDes}
+      />
     </main>
   )
 }
